@@ -4,15 +4,21 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "mocha --timeout 20000"
+    "start": "node app.js",
+    "test": "mocha './test/' --recursive --exit --timeout 20000"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@google-cloud/firestore": "^5.0.2",
+    "bcrypt": "^5.0.1",
     "body-parser": "^1.20.0",
     "dotenv": "^16.0.1",
-    "express": "^4.18.1"
+    "express": "^4.18.1",
+    "install": "^0.13.0",
+    "jsonwebtoken": "^8.5.1",
+    "npm": "^8.12.1",
+    "winston": "^3.7.2"
   },
   "devDependencies": {
     "chai-as-promised": "^7.1.1",

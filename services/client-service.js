@@ -1,56 +1,72 @@
-const res = require('express/lib/response');
 const collections = require('../util/collection-constants')
-
-const getFirestoreDB = require("../util/firestore-db");
+const getFirestoreDB = require("../config/firestore-db");
+const logger = require('../config/log-configuration');
+const DocumentCreationException = require('../exceptions/document-creation-exception');
+const ClientUsernameService = require('./clinent-username-service');
+const AccountAlreadyExistsException = require('../exceptions/account-alreay-exists-exception');
 
 
 class ClientService{
+    
     constructor(){
         const db = getFirestoreDB();
-        this.clientUsernameCollection = db.collection(collections.CLIENT_USERNAME_COLLECTION);
+        logger.info('Connected to db');
+        this.clientUsernameService = new ClientUsernameService();
         this.clientCollection = db.collection(collections.CLIENT_COLLECTION);
     }
 
    async save(client){
-           
-        const isExists = await this.isAccountExists(client.email);
+        logger.info("save:: "+ JSON.stringify(client));
+        const email = client.email;
+        const isExists = await this.isAccountExists(email);
         if(!isExists){
-            await this.clientUsernameCollection.doc(client.email).set({
-                'email': client.email
-            });
-            const resp = await this.clientCollection.add(JSON.parse(JSON.stringify(client)));
-            await this.clientUsernameCollection.doc(client.email).update({
-                'email': client.email,
-                'clientCollectionKey': resp.id
-            });
-            return resp.id;
+            await this.clientUsernameService.save(email);
+            let id;
+            try{
+                const docRef = await this.clientCollection.add(JSON.parse(JSON.stringify(client)));
+                logger.info("client collection added, Key:: "+ docRef.id);      
+                id = docRef.id;
+            }catch(err){
+                logger.error(err.stack);
+                throw new DocumentCreationException('Client','document not created'); 
+            }
+        
+            await this.clientUsernameService.update(email,id);
+            logger.info("Idd::::: "+ id);
+            return id;
+
         }else{
-            throw new Error(`An account already exits with ${client.email}`);
+            logger.error("Account already existed with email:: "+email);
+            throw new AccountAlreadyExistsException(`An account already exits with ${email}`);
         }
         
     }
 
 
     async update(client, clientCollectionKey) {
+
+        logger.info("update:: "+ clientCollectionKey);
+        
         const email = client.email; 
         
         if(await this.isUsernameUpdating(email,clientCollectionKey)){
+            logger.info("username is updating");
             if(await this.isEmailExistsForOtherClient(email,clientCollectionKey)){
                 throw new Error(`${email} is already exist for another user`);
             }
-            const querySnapshot = await this.clientUsernameCollection.where('clientCollectionKey', '==', clientCollectionKey).get();
-            const docs = await querySnapshot.docs;
-            await this.clientUsernameCollection.doc(docs[0].data().email).delete();
-            await this.clientUsernameCollection.doc(email).set({
-                'email':email,
-                'clientCollectionKey': clientCollectionKey
-            })
-            
+            const email = await this.clientUsernameService.getClientEmail(clientCollectionKey);
+            await this.clientUsernameService.delete(email);
+            await this.clientUsernameService.update(email,clientCollectionKey);
+            logger.info("username is updated to:: "+ email);
         }
 
        await this.clientCollection.doc(clientCollectionKey).update(JSON.parse(JSON.stringify(client)));
+       logger.info("client details are updated");
        return clientCollectionKey;
     }
+
+
+    
 
     async isUsernameUpdating(email,clientCollectionKey){
         const clientDetails = await this.getClientCollection(clientCollectionKey);
@@ -61,25 +77,21 @@ class ClientService{
     }
 
 
+    async getClientCollectionWithUsername(email){
+        const clientUsernameCollection = await this.clientUsernameService.get(email);
+       return await this.getClientCollection(clientUsernameCollection.clientCollectionKey);
+    }
+
     async getClientCollection(clientCollectionKey){
         const clientDoc = await this.clientCollection.doc(clientCollectionKey).get()
         if(!clientDoc.exists){
-            throw new Error(`No account exsits ${clientCollectionKey}`);
+            throw new AccountNotFoundException(`No account exsits ${clientCollectionKey}`);
         }    
         return clientDoc.data(); 
     }
 
-    async getClientUsernameCollection(email){
-       const document = await this.clientUsernameCollection.doc(email).get();
-       if(!document.exists){
-           throw new Error(`No account exsits ${email}`);
-       }
-           
-       return document.data(); 
-    }
-
     async isAccountExists(email){
-        return await this.getClientUsernameCollection(email).then(
+        return await this.clientUsernameService.get(email).then(
             (data)=> {
                 return true;
             },
@@ -102,27 +114,19 @@ class ClientService{
     }
 
     async getAccountWithUsernameAndCollectionKey(email, clientCollectionKey){
-        const document = await this.clientUsernameCollection.doc(email).get();
-       if(!document.exists){
-        throw new Error(`No account exsits ${email}`);
-       }else{
-            if(document.data().clientCollectionKey !== clientCollectionKey){
-                return true;
-            }else{
-                return false;
-            }
-       }
+        const usernameCollection = await this.clientUsernameService.get(email);
+             if(usernameCollection.clientCollectionKey !== clientCollectionKey){
+            return true;
+        }else{
+            return false;
+        }
     }
 
 
     async delete(email){
-        const emailDoc = await this.clientUsernameCollection.doc(email).get();
-        if(emailDoc.empty){
-            throw new Error(`Account with ${email} is not existed or already deleted`);
-        }else{
-            await this.clientCollection.doc(emailDoc.data().clientCollectionKey).delete();
-            await this.clientUsernameCollection.doc(email).delete();
-        }
+        const usernameCollection = await this.clientUsernameService.get(email);
+        await this.clientCollection.doc(usernameCollection.clientCollectionKey).delete();
+        await this.clientUsernameCollection.doc(email).delete();
     }
 }
 

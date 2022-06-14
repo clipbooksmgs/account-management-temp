@@ -2,7 +2,7 @@ const chai = require('chai')
 const chaiAsPromised = require("chai-as-promised");
 
 const { beforeEach, afterEach } = require('mocha');
-const Client = require("../model/Client");
+const Client = require("../../model/Client");
 
 
 chai.use(chaiAsPromised);
@@ -11,7 +11,7 @@ const expect = chai.expect;
 chai.should();
 
 
-const ClientService = require('../services/client-service');
+const ClientService = require('../../services/client-service');
 
 describe('Client Service Tests',()=>{
 
