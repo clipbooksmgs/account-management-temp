@@ -7,11 +7,12 @@ const ClientService = require('../services/client-service');
 const logger = require('../config/log-configuration');
 const generateResponse = require('../util/generate-response');
 const res = require('express/lib/response');
+const { createSubscription } = require('../services/StripeServices');
 
-const router = express.Router();
+
 const clientService = new ClientService();
 
-router.post('/login', async (req, resp, next) => {
+const login =  async (req, resp, next) => {
     const creds = {
         "email": req.body.username,
         "password": req.body.password
@@ -45,37 +46,46 @@ router.post('/login', async (req, resp, next) => {
         return resp.status(err.httpStatusCode)
                     .send(generateResponse("FAILURE",err.message,null));
     }
-});
+};
 
 
-router.post('/signup',async (req,resp,next)=>{
+const signup = async (req,resp,next)=>{
+    logger.info('singup::'+ JSON.stringify(req.body));
     const client = req.body;
     client.password = await bcrypt.hash(client.password,12);
-    clientService.save(client).then(
-        ()=> { 
-            return resp.status(201)
-            .send(generateResponse("SUCCESS",null,null))
+    clientService.save(client)
+    .then((customer)=> { 
+            logger.info('account created succesfully');
+            const details  = {
+                customerId: customer.stripeCustomerId,
+                priceId: client.subscription.priceId
+            }
+            console.log(details);
+            createSubscription(details).then(subscriptionDetails => {
+                return resp.status(201)
+                .send(generateResponse("SUCCESS",null,{
+                    customerId: customer.customerId,
+                    subscriptionId: subscriptionDetails.subscriptionId,
+                    clientSecret: subscriptionDetails.clientSecret
+                }))
+            }).catch(err => {
+                return resp.status(500)
+                .send(generateResponse("FAILURE",err.message,null))
+            })
+            
         },
         (err)=> {
-            console.log(err);
+            logger.error(err.stack);
+            return resp.status(err.httpStatusCode)
+            .send(generateResponse("FAILURE",err.message,null))
         }
-    ).catch(err => {
+    )
+    .catch(err => {
         logger.error(err.stack);
-        resp.status(err.httpStatusCode)
+        return resp.status(err.httpStatusCode)
         .send(generateResponse("FAILURE",err.message,null));
     })
-    
-    // .then(()=> {
-    //     res.status(201)
-    //     .send(generateResponse("SUCCESS",null,null))
-    // })
-    // .catch(err => {
-    //     console.log(err);
-    //     logger.error(err.stack);
-    //     resp.status(err.httpStatusCode)
-    //     .send(generateResponse("FAILURE",err.message,null));
-    // });
-})
+}
 
 
 function createToken(email) {
@@ -84,4 +94,6 @@ function createToken(email) {
 }
 
 
-module.exports = router;
+module.exports = {
+    login,signup
+}

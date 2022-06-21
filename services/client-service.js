@@ -4,6 +4,8 @@ const logger = require('../config/log-configuration');
 const DocumentCreationException = require('../exceptions/document-creation-exception');
 const ClientUsernameService = require('./clinent-username-service');
 const AccountAlreadyExistsException = require('../exceptions/account-alreay-exists-exception');
+const { createCustomer } = require('./StripeServices');
+const { cli } = require('winston/lib/winston/config');
 
 
 class ClientService{
@@ -20,6 +22,9 @@ class ClientService{
         const email = client.email;
         const isExists = await this.isAccountExists(email);
         if(!isExists){
+            const customer = await createCustomer(client)
+            client.stripeCustomerId = customer.customerId;
+            logger.info('stripe customer is created'+ client.stripeCustomerId);
             await this.clientUsernameService.save(email);
             let id;
             try{
@@ -33,7 +38,10 @@ class ClientService{
         
             await this.clientUsernameService.update(email,id);
             logger.info("Idd::::: "+ id);
-            return id;
+            return {
+                "stripeCustomerId": client.stripeCustomerId,
+                "clientId": id
+            }
 
         }else{
             logger.error("Account already existed with email:: "+email);
@@ -93,9 +101,11 @@ class ClientService{
     async isAccountExists(email){
         return await this.clientUsernameService.get(email).then(
             (data)=> {
+                logger.info('then isAccountExists')
                 return true;
             },
             (err)=> {
+                logger.error(err);
                 return false;
             }
         )

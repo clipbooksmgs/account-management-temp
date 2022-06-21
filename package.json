@@ -4,7 +4,7 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
+    "start": "nodemon app.js",
     "test": "mocha './test/' --recursive --exit --timeout 20000"
   },
   "author": "",
@@ -13,15 +13,18 @@
     "@google-cloud/firestore": "^5.0.2",
     "bcrypt": "^5.0.1",
     "body-parser": "^1.20.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.0.1",
     "express": "^4.18.1",
     "install": "^0.13.0",
     "jsonwebtoken": "^8.5.1",
     "npm": "^8.12.1",
+    "stripe": "^9.9.0",
     "winston": "^3.7.2"
   },
   "devDependencies": {
     "chai-as-promised": "^7.1.1",
-    "mocha": "^10.0.0"
+    "mocha": "^10.0.0",
+    "nodemon": "^2.0.16"
   }
 }
