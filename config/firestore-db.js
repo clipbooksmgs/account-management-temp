@@ -2,7 +2,12 @@ const Firestore = require('@google-cloud/firestore');
 const devenv = require('dotenv');
 const path = require('path');
 
-devenv.config({path: path.resolve(__dirname, '../../keys/.env')});
+
+if(process.env.ENVIRONMENT==='DEV'){
+    devenv.config({path: path.resolve(__dirname, '../.env.development')});
+}else if(process.env.ENVIRONMENT==='DEV'){
+    devenv.config({path: path.resolve(__dirname, '../.env.production')});
+}
 
 
 

@@ -5,7 +5,7 @@ const DocumentCreationException = require('../exceptions/document-creation-excep
 const ClientUsernameService = require('./clinent-username-service');
 const AccountAlreadyExistsException = require('../exceptions/account-alreay-exists-exception');
 const { createCustomer } = require('./StripeServices');
-const { cli } = require('winston/lib/winston/config');
+const BaseException = require('../exceptions/base-exception');
 
 
 class ClientService{
@@ -26,6 +26,7 @@ class ClientService{
             client.stripeCustomerId = customer.customerId;
             logger.info('stripe customer is created'+ client.stripeCustomerId);
             await this.clientUsernameService.save(email);
+            logger.info(`client username document created`);
             let id;
             try{
                 const docRef = await this.clientCollection.add(JSON.parse(JSON.stringify(client)));
@@ -51,28 +52,42 @@ class ClientService{
     }
 
 
-    async update(client, clientCollectionKey) {
-
-        logger.info("update:: "+ clientCollectionKey);
-        
+    async update(client) {
+     
         const email = client.email; 
+        const id = client.id;
+        logger.info(`Id::: ${id}, Email::: ${email}`);
         
-        if(await this.isUsernameUpdating(email,clientCollectionKey)){
+        if(await this.isUsernameUpdating(email,id)){
             logger.info("username is updating");
-            if(await this.isEmailExistsForOtherClient(email,clientCollectionKey)){
+            if(await this.isEmailExistsForOtherClient(email,id)){
                 throw new Error(`${email} is already exist for another user`);
             }
-            const email = await this.clientUsernameService.getClientEmail(clientCollectionKey);
-            await this.clientUsernameService.delete(email);
-            await this.clientUsernameService.update(email,clientCollectionKey);
+            const oldEmail = await this.clientUsernameService.getClientEmail(id);
+            await this.clientUsernameService.delete(oldEmail);
+            await this.clientUsernameService.save(email);
+            await this.clientUsernameService.update(email,id);
             logger.info("username is updated to:: "+ email);
         }
 
-       await this.clientCollection.doc(clientCollectionKey).update(JSON.parse(JSON.stringify(client)));
+       await this.clientCollection.doc(id).update(JSON.parse(JSON.stringify(client)));
        logger.info("client details are updated");
-       return clientCollectionKey;
+       return id;
     }
 
+
+    async getClient(email) {
+        try{
+            const querySnapshot = await this.clientCollection.where('email', '==', email).get();
+            const id = querySnapshot.docs[0].id
+            const remainingFields = querySnapshot.docs[0].data();
+            const client = {id,...remainingFields};
+            return client;
+        }catch(err){
+            logger.error(err);
+            throw new BaseException(500,'Internal error occured while fecthing');
+        }
+    }
 
     
 

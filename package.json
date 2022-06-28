@@ -4,13 +4,16 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "nodemon app.js",
+    "start": "node app.js",
+    "start:dev":"nodemon app.js",
     "test": "mocha './test/' --recursive --exit --timeout 20000"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@google-cloud/firestore": "^5.0.2",
+    "@google-cloud/logging": "^10.0.4",
+    "@google-cloud/logging-winston": "^5.1.0",
     "bcrypt": "^5.0.1",
     "body-parser": "^1.20.0",
     "cors": "^2.8.5",

@@ -49,10 +49,11 @@ class ClientUsernameService{
     }
 
     async getClientEmail(clientCollectionKey){
+        logger.info(`getClient Email:: ${clientCollectionKey}`);
         try{
             const querySnapshot = await this.clientUsernameCollection.where('clientCollectionKey', '==', clientCollectionKey).get();
             if(querySnapshot.empty){
-                throw AccountNotFoundException('collectionKey not existed');
+                throw new AccountNotFoundException('collectionKey not existed');
             }
             const docs = await querySnapshot.docs;
             return docs[0].data().email;
